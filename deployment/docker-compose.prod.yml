@@ -1,0 +1,350 @@
+version: '3.8'
+
+services:
+  # --- Load Balancer ---
+  nginx:
+    image: nginx:alpine
+    container_name: trading-bot-nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - api-1
+      - api-2
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 64M
+
+  # --- API Replicas (Active-Active) ---
+  api-1:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: trading-bot-api-1
+    environment:
+      - INSTANCE_ID=api-1
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc_dir
+    volumes:
+      - ./prometheus_multiproc_dir:/tmp/prometheus_multiproc_dir
+      - ../backend/data:/app/data:ro
+    env_file:
+      - ../backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  api-2:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: trading-bot-api-2
+    environment:
+      - INSTANCE_ID=api-2
+      - PROMETHEUS_MULTIPROC_DIR=/tmp/prometheus_multiproc_dir
+    volumes:
+      - ./prometheus_multiproc_dir:/tmp/prometheus_multiproc_dir
+      - ../backend/data:/app/data:ro
+    env_file:
+      - ../backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/healthz"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # --- Background Worker (Single Instance for Orchestrator) ---
+  worker:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: trading-bot-worker
+    command: ["python", "-m", "backend.orchestrator.runner"]
+    environment:
+      - INSTANCE_ID=worker
+    volumes:
+      - ../backend/data:/app/data:ro
+    env_file:
+      - ../backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # --- Telegram Bot (Single Instance) ---
+  telegram-bot:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    container_name: trading-bot-telegram
+    command: ["python", "-m", "backend.telegram.bot"]
+    environment:
+      - INSTANCE_ID=telegram
+    volumes:
+      - ../backend/data:/app/data:ro
+    env_file:
+      - ../backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # --- Monitoring Stack ---
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: trading-bot-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: trading-bot-grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_INSTALL_PLUGINS=
+      - GF_SERVER_ROOT_URL=https://grafana.yourdomain.com/
+    volumes:
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  alertmanager:
+    image: prom/alertmanager:v0.26.0
+    container_name: trading-bot-alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    volumes:
+      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    ports:
+      - "9093:9093"
+    networks:
+      - trading-network
+    restart: unless-stopped
+
+  # --- Core Infrastructure ---
+  postgres:
+    image: postgres:15-alpine
+    container_name: trading-postgres
+    environment:
+      - POSTGRES_USER=trading
+      - POSTGRES_PASSWORD=trading
+      - POSTGRES_DB=trading
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: trading-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  qdrant:
+    image: qdrant/qdrant:v1.7.0
+    container_name: trading-qdrant
+    volumes:
+      - qdrant-data:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    networks:
+      - trading-network
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+  # --- Prometheus Exporters ---
+  node-exporter:
+    image: prom/node-exporter:v1.6.1
+    container_name: trading-node-exporter
+    command:
+      - '--path.rootfs=/host'
+    pid: host
+    network_mode: host
+    volumes:
+      - '/:/host:ro,rslave'
+    restart: unless-stopped
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.47.0
+    container_name: trading-cadvisor
+    volumes:
+      - '/:/rootfs:ro'
+      - '/var/run:/var/run:ro'
+      - '/sys:/sys:ro'
+      - '/var/lib/docker/:/var/lib/docker:ro'
+      - '/dev/disk/:/dev/disk:ro'
+    ports:
+      - "8080:8080"
+    networks:
+      - trading-network
+    restart: unless-stopped
+
+networks:
+  trading-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres-data:
+  redis-data:
+  qdrant-data:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:

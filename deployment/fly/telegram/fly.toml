@@ -1,0 +1,45 @@
+# Fly.io app: telegram-bot
+# The trading bot poller (long polling, no inbound HTTP needed).
+# Example deploy (from repo root):
+#   fly launch --dockerfile backend/Dockerfile --build-target telegram --name trading-telegram
+#   fly secrets set TELEGRAM_BOT_TOKEN=... OMNIRUTE_BASE_URL=http://trading-omniroute.internal:20128/v1 ...
+# Service: only needed for /healthz; Telegram uses outbound polling.
+
+app = "trading-telegram"
+primary_region = "sin"   # adjust to your closest region
+
+build:
+  dockerfile: "../../backend/Dockerfile"
+  build_target: "telegram"
+
+env:
+  PYTHONPATH: "/app"
+  CRYPTO_PRICE_PROVIDER: "binance"
+  LIVE_TRADING_ENABLED: "false"
+
+# No public TCP port strictly required (outbound long-poll). Health via fly
+# internal checks optional; uncomment if you want a public health endpoint.
+# [[services]]
+#   http_checks = [{ interval = "30s", timeout = "5s", grace_period = "40s" }]
+#   [[services.ports]]
+#     handlers = ["http"]
+#     port = 8080
+#   [[services.tcp_checks]]
+#     interval = "30s"
+#     timeout = "5s"
+#     grace_period = "40s"
+
+[metrics]
+  enabled = false
+
+[[mounts]]
+  source = "bot_data"
+  destination = "/app/data"
+
+# Secrets (set via fly secrets set; never commit):
+#   TELEGRAM_BOT_TOKEN
+#   ALLOWED_TELEGRAM_USER_IDS
+#   OMNIRUTE_BASE_URL   (e.g. http://trading-omniroute.internal:20128/v1)
+#   POSTGRES_DSN        (from fly postgres attach)
+#   REDIS_URL           (from fly redis / upstash)
+#   VECTOR_STORE_URL    (e.g. http://trading-qdrant.internal:6333)

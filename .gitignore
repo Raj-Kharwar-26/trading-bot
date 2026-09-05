@@ -1,0 +1,48 @@
+# Secrets — NEVER commit
+.env
+**/.env
+*.pem
+*.key
+
+# OmniRoute local gateway data (provider credentials, call logs, sqlite)
+.omniroute/
+**/.omniroute/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+db_backups/
+
+# Logs & runtime output
+*.log
+logs/
+bot_out.log
+bot_err.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
+
+# Data / artifacts (volume-mounted, not committed)
+data/
+*.db
+*.sqlite3
+paper_logs/
+audit_logs/
+reflections/
+
+# Trading memory / logs (may contain sensitive decision data)
+.tradingagents/
+
+# Env / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

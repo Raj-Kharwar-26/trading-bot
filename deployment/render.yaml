@@ -1,0 +1,88 @@
+# Render Blueprint — FREE 24/7 trading bot.
+#
+# Render's free tier only keeps WEB services alive (background workers/pserv
+# cost $7+/mo each), so the bot runs as ONE free web service that:
+#   - serves an HTTP health endpoint (/healthz) so the platform marks it healthy,
+#   - stays awake via an external heartbeat ping (free UptimeRobot / Healthchecks.io),
+#   - runs the Telegram poller in the same process (backend/run_cloud.py).
+#
+# Where each dependency lives (all free-tier, set as env vars, never committed):
+#   - POSTGRES_DSN  -> Neon free Postgres (persists; Render free Postgres dies at 30d)
+#   - QDRANT_URL    -> Qdrant Cloud free cluster + QDRANT_API_KEY (RAG vectors persist)
+#   - REDIS_URL     -> Render free Key Value instance (orchestrator queue)
+#   - OMNIRUTE_BASE_URL -> https://openrouter.ai/api/v1 + OPENROUTER_API_KEY (no OmniRoute container)
+#
+# Only ~720 of the 750 free instance-hours/month are used by this one service
+# (31 days x 24h ≈ 744h), which is exactly why we cannot add any second service.
+
+services:
+  - type: web
+    name: trading-telegram-bot
+    runtime: docker
+    dockerfilePath: backend/Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /healthz
+    healthCheckTimeout: 300
+    dockerContext: .
+    envVars:
+      # --- secrets (set in the Render dashboard; never in git) ---
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: ALLOWED_TELEGRAM_USER_IDS
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: POSTGRES_DSN
+        sync: false          # Neon free Postgres connection string
+      - key: QDRANT_URL
+        sync: false          # Qdrant Cloud cluster URL
+      - key: QDRANT_API_KEY
+        sync: false
+      - key: REDIS_URL
+        sync: false          # Render Key Value (Redis) connection string
+      - key: BINANCE_TESTNET_API_KEY
+        sync: false
+      - key: BINANCE_TESTNET_API_SECRET
+        sync: false
+      - key: BINANCE_API_KEY
+        sync: false
+      - key: BINANCE_API_SECRET
+        sync: false
+      - key: ZERODHA_API_KEY
+        sync: false
+      - key: ZERODHA_API_SECRET
+        sync: false
+      - key: ZERODHA_ACCESS_TOKEN
+        sync: false
+      - key: REASONING_MODEL
+        sync: false          # recommend a reliable paid model, e.g. openrouter/openai/gpt-4o-mini
+      - key: REASONING_MODEL_FALLBACK
+        sync: false
+      # --- public/non-secret ---
+      - key: OMNIRUTE_BASE_URL
+        value: https://openrouter.ai/api/v1
+      - key: CRYPTO_PRICE_PROVIDER
+        value: binance
+      - key: LIVE_TRADING_ENABLED
+        value: "true"        # hybrid: user switches paper <-> live per order via /mode + /approve
+      - key: LIVE_TRADING_MODE
+        value: paper         # safe default; switch live/hybrid over Telegram
+      - key: APPROVAL_REQUIRED
+        value: "true"
+      - key: MAX_LOSS_PER_TRADE
+        value: "0.01"
+      - key: MAX_DAILY_LOSS
+        value: "0.03"
+      - key: MIN_RR_RATIO
+        value: "1.5"
+      - key: MAX_POSITION_PCT
+        value: "0.05"
+      - key: MAX_CONCURRENT_POSITIONS
+        value: "10"
+      - key: MAX_TOTAL_EXPOSURE
+        value: "0.30"
+      - key: BACKTEST_ENABLED
+        value: "true"
+      - key: PAPER_INITIAL_CASH
+        value: "1000000.0"

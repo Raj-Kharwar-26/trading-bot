@@ -1,0 +1,483 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": "-- Grafana --",
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "gnetId": null,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": -0.015},
+              {"color": "red", "value": -0.03}
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "risk_daily_pnl_pct * 100",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Daily PnL %",
+          "refId": "A"
+        }
+      ],
+      "title": "Daily PnL %",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 20},
+              {"color": "red", "value": 30}
+            ]
+          },
+          "unit": "percentunit"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "risk_exposure_pct * 100",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Exposure %",
+          "refId": "A"
+        }
+      ],
+      "title": "Total Exposure %",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"options": {"0": {"color": "green", "index": 0}, "1": {"color": "red", "index": 1}}, "type": "value"}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 12, "y": 0},
+      "id": 3,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "risk_halted",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Halted",
+          "refId": "A"
+        }
+      ],
+      "title": "Trading Halted",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 16, "w": 12, "x": 0, "y": 8},
+      "id": 4,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "portfolio_equity{mode=\"paper\"}",
+          "legendFormat": "Paper Equity",
+          "refId": "A"
+        },
+        {
+          "expr": "portfolio_equity{mode=\"live\"}",
+          "legendFormat": "Live Equity",
+          "refId": "B"
+        }
+      ],
+      "title": "Portfolio Equity Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 16, "w": 12, "x": 12, "y": 8},
+      "id": 5,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "portfolio_unrealized_pnl{mode=\"paper\"}",
+          "legendFormat": "Paper Unrealized",
+          "refId": "A"
+        },
+        {
+          "expr": "portfolio_realized_pnl{mode=\"paper\"}",
+          "legendFormat": "Paper Realized",
+          "refId": "B"
+        },
+        {
+          "expr": "portfolio_unrealized_pnl{mode=\"live\"}",
+          "legendFormat": "Live Unrealized",
+          "refId": "C"
+        },
+        {
+          "expr": "portfolio_realized_pnl{mode=\"live\"}",
+          "legendFormat": "Live Realized",
+          "refId": "D"
+        }
+      ],
+      "title": "PnL Breakdown",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 24},
+      "id": 6,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "open_positions{mode=\"paper\"}",
+          "legendFormat": "Paper Positions",
+          "refId": "A"
+        },
+        {
+          "expr": "open_positions{mode=\"live\"}",
+          "legendFormat": "Live Positions",
+          "refId": "B"
+        }
+      ],
+      "title": "Open Positions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "currencyUSD"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "id": 7,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "portfolio_cash{mode=\"paper\"}",
+          "legendFormat": "Paper Cash",
+          "refId": "A"
+        },
+        {
+          "expr": "portfolio_cash{mode=\"live\"}",
+          "legendFormat": "Live Cash",
+          "refId": "B"
+        }
+      ],
+      "title": "Available Cash",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 8,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(analysis_requests_total[5m])",
+          "legendFormat": "{{engine}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Analysis Request Rate (req/min)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 9,
+      "options": {
+        "legend": {"calcs": ["mean"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(analysis_duration_seconds_bucket[5m]))",
+          "legendFormat": "p95",
+          "refId": "A"
+        },
+        {
+          "expr": "histogram_quantile(0.50, rate(analysis_duration_seconds_bucket[5m]))",
+          "legendFormat": "p50",
+          "refId": "B"
+        }
+      ],
+      "title": "Analysis Latency (p50/p95)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 40},
+      "id": 10,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(backtest_runs_total[5m])",
+          "legendFormat": "{{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Backtest Run Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {"axisLabel": "", "axisPlacement": "auto", "barAlignment": 0, "drawStyle": "line", "fillOpacity": 10, "gradientMode": "none", "hideFrom": {"tooltip": false, "viz": false, "legend": false}, "lineInterpolation": "linear", "lineWidth": 1, "pointSize": 5, "scaleDistribution": {"type": "linear"}, "showPoints": "never", "spanNulls": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 40},
+      "id": 11,
+      "options": {
+        "legend": {"calcs": ["lastNotNull"], "displayMode": "table", "placement": "bottom"},
+        "tooltip": {"mode": "single"}
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "rate(trade_orders_total[5m])",
+          "legendFormat": "{{mode}} {{side}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Trade Order Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [
+            {"options": {"0": {"color": "green", "index": 0}, "1": {"color": "red", "index": 1}}, "type": "value"}
+          ],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "red", "value": 1}]},
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "id": 12,
+      "options": {
+        "orientation": "auto",
+        "reduceOptions": {"values": false, "calcs": ["lastNotNull"], "fields": ""},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.0.0",
+      "targets": [
+        {
+          "expr": "risk_halted",
+          "format": "time_series",
+          "instant": true,
+          "legendFormat": "Halted",
+          "refId": "A"
+        }
+      ],
+      "title": "Trading Halted",
+      "type": "stat"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 27,
+  "style": "dark",
+  "tags": ["trading-bot", "paper-trading", "live-trading"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "All", "value": "$__all"},
+        "datasource": "Prometheus",
+        "definition": "label_values(portfolio_equity, mode)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Mode",
+        "multi": true,
+        "name": "mode",
+        "options": [],
+        "query": {"query": "label_values(portfolio_equity, mode)", "refId": "StandardVariableQuery"},
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {"selected": false, "text": "All", "value": "$__all"},
+        "datasource": "Prometheus",
+        "definition": "label_values(portfolio_equity, market)",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Market",
+        "multi": true,
+        "name": "market",
+        "options": [],
+        "query": {"query": "label_values(portfolio_equity, market)", "refId": "StandardVariableQuery"},
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "Trading Bot - Portfolio & Risk Dashboard",
+  "uid": "trading-bot-dashboard",
+  "version": 1
+}

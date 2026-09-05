@@ -1,0 +1,93 @@
+global:
+  resolve_timeout: 5m
+
+# Telegram notification template
+templates:
+  - '/etc/alertmanager/template/*.tmpl'
+
+# Route configuration
+route:
+  group_by: ['alertname', 'severity', 'component']
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  receiver: 'telegram'
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'telegram-critical'
+      continue: true
+
+    # Warning alerts - batch notifications
+    - match:
+        severity: warning
+      receiver: 'telegram-warning'
+      group_wait: 1m
+      group_interval: 10m
+
+    # Info alerts - daily digest
+    - match:
+        severity: info
+      receiver: 'telegram-info'
+      group_wait: 10m
+      group_interval: 1h
+
+# Receivers
+receivers:
+  # Critical alerts - immediate
+  - name: 'telegram-critical'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        message: |
+          🚨 <b>{{ .GroupLabels.alertname }}</b> - CRITICAL
+          {% for alert in .Alerts %}
+          <b>{{ alert.Labels.component | upper }}</b>: {{ alert.Annotations.description }}
+          Value: {{ alert.Value }} (threshold: {{ alert.Labels.threshold }})
+          {% endfor %}
+
+  # Warning alerts
+  - name: 'telegram-warning'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        message: |
+          ⚠️ <b>{{ .GroupLabels.alertname }}</b> - WARNING
+          {% for alert in .Alerts %}
+          <b>{{ alert.Labels.component | upper }}</b>: {{ alert.Annotations.description }}
+          Value: {{ alert.Value }} (threshold: {{ alert.Labels.threshold }})
+          {% endfor %}
+
+  # Info alerts
+  - name: 'telegram-info'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+        message: |
+          ℹ️ <b>{{ .GroupLabels.alertname }}</b>
+          {% for alert in .Alerts %}
+          {{ alert.Annotations.description }}
+          {% endfor %}
+
+  # General Telegram (fallback)
+  - name: 'telegram'
+    telegram_configs:
+      - bot_token: '${TELEGRAM_BOT_TOKEN}'
+        chat_id: ${TELEGRAM_CHAT_ID}
+
+# Inhibition rules
+inhibit_rules:
+  # Inhibit warnings if critical is firing for same component
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['component']
+
+  # Inhibit info if warning is firing
+  - source_match:
+      severity: 'warning'
+    target_match:
+      severity: 'info'
+    equal: ['component']

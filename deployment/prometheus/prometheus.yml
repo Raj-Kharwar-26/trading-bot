@@ -1,0 +1,78 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'trading-bot'
+    environment: 'production'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+# Rule files
+rule_files:
+  - '/etc/prometheus/rules/*.yml'
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Trading Bot API (scrape from one instance to avoid double counting)
+  - job_name: 'trading-bot-api'
+    metrics_path: '/metrics'
+    scrape_interval: 10s
+    static_configs:
+      - targets: ['api-1:8000']
+        labels:
+          instance: 'api-1'
+          role: 'api-primary'
+      - targets: ['api-2:8000']
+        labels:
+          instance: 'api-2'
+          role: 'api-secondary'
+
+  # Trading Bot Worker
+  - job_name: 'trading-bot-worker'
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    static_configs:
+      - targets: ['worker:8000']
+
+  # Node Exporter (host metrics)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # cAdvisor (container metrics)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Postgres Exporter (if available)
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+
+  # Redis Exporter (if available)
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+
+  # Nginx (if nginx-prometheus-exporter is added)
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['nginx:9113']
+
+  # Alertmanager
+  - job_name: 'alertmanager'
+    static_configs:
+      - targets: ['alertmanager:9093']
+
+  # Grafana
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']

@@ -1,0 +1,98 @@
+# Cloud-oriented compose: Telegram bot + OmniRoute + core infra.
+# Use on a Linux host (or local preview). For PaaS (Railway/Render/Fly) see
+# render.yaml / railway.json / README-deploy.md instead.
+#
+#   docker compose -f deployment/docker-compose.cloud.yml up -d --build
+#
+# Build context is the PROJECT ROOT so backend/Dockerfile can COPY requirements.txt
+# and backend/.
+
+services:
+  omniroute:
+    build:
+      context: ../
+      dockerfile: deployment/omniroute/Dockerfile
+    container_name: trading-omniroute
+    environment:
+      STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
+      PORT: "20128"
+    ports:
+      - "20128:20128"
+    volumes:
+      - omniroute-data:/root/.omniroute
+    restart: unless-stopped
+
+  telegram-bot:
+    build:
+      context: ../
+      dockerfile: backend/Dockerfile
+      target: telegram
+    container_name: trading-telegram
+    command: ["python", "-m", "backend.telegram.bot"]
+    env_file:
+      - ../backend/.env
+    environment:
+      OMNIRUTE_BASE_URL: http://omniroute:20128/v1
+      POSTGRES_DSN: postgresql://trading:trading@postgres:5432/trading
+      REDIS_URL: redis://redis:6379/0
+      VECTOR_STORE_URL: http://qdrant:6333
+      CRYPTO_PRICE_PROVIDER: binance
+    depends_on:
+      - omniroute
+      - postgres
+      - redis
+      - qdrant
+    volumes:
+      - bot-data:/app/data
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: trading-postgres
+    environment:
+      POSTGRES_USER: trading
+      POSTGRES_PASSWORD: trading
+      POSTGRES_DB: trading
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trading -d trading"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: trading-redis
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  qdrant:
+    image: qdrant/qdrant:v1.10.0
+    container_name: trading-qdrant
+    volumes:
+      - qdrantdata:/qdrant/storage
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/healthz || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  omniroute-data:
+  bot-data:
+  pgdata:
+  redisdata:
+  qdrantdata:

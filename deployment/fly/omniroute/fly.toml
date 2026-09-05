@@ -1,0 +1,38 @@
+# Fly.io app: omniroute — the LLM gateway.
+# Deploy from repo root:
+#   fly launch --dockerfile deployment/omniroute/Dockerfile --name trading-omniroute
+#   fly secrets set STORAGE_ENCRYPTION_KEY=<your-local ~/.omniroute key>
+# The telegram app reaches it via the private Fly internal network at
+#   http://trading-omniroute.internal:20128/v1
+
+app = "trading-omniroute"
+primary_region = "sin"
+
+build:
+  dockerfile: "../omniroute/Dockerfile"
+
+env:
+  PORT: "20128"
+  DATA_DIR: "/root/.omniroute"
+  NODE_ENV: "production"
+
+# Expose the gateway on the private network only (internal IP range) so the bot
+# can call it without exposing your AI provider gateway publicly.
+[[services]]
+  internal_port = 20128
+  protocol = "tcp"
+  auto_stop_machines = false
+  auto_start_machines = true
+  min_machines_running = 1
+  [[services.ports]]
+    handlers = ["http"]
+    port = 20128
+    force_https = true
+
+[[mounts]]
+  source = "omniroute_data"
+  destination = "/root/.omniroute"
+
+# Secret: STORAGE_ENCRYPTION_KEY (set via fly secrets set).
+# NOTE: restrict public ingress if not needed — the bot only needs the internal
+# network. Consider removing the [[services]] block and rely on .internal DNS.
