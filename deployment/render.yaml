@@ -23,7 +23,6 @@ services:
     plan: free
     region: singapore
     healthCheckPath: /healthz
-    healthCheckTimeout: 300
     dockerContext: .
     envVars:
       # --- secrets (set in the Render dashboard; never in git) ---
