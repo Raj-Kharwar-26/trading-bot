@@ -187,7 +187,12 @@ def ingest_strategy_docs(force_rebuild: bool = True) -> dict:
         delete_all_documents(client)
 
     points = _build_points(files)
-    client.upsert(collection_name=settings.qdrant_collection, points=points)
+    # Upsert in small batches to avoid Qdrant free-cloud request timeouts
+    # (large payloads of PDF chunks can exceed the per-request limit).
+    batch_size = 50
+    for i in range(0, len(points), batch_size):
+        batch = points[i : i + batch_size]
+        client.upsert(collection_name=settings.qdrant_collection, points=batch)
 
     summary = {
         "files": len(files),

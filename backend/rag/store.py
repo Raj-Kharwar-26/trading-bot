@@ -27,6 +27,7 @@ def get_client() -> QdrantClient:
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key or None,
             check_compatibility=False,
+            timeout=120,
         )
     except Exception as exc:  # noqa: BLE001
         raise VectorStoreError(f"cannot reach Qdrant at {settings.qdrant_url}: {exc}") from exc
