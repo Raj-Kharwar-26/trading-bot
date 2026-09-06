@@ -82,8 +82,17 @@ async def probe_outbound() -> None:
             log.error("PROBE getaddrinfo %s -> %r", host, exc)
 
     def _llm() -> None:
+        from backend.core.config import settings
         from backend.reasoning.llm import _complete_once
 
+        log.info(
+            "PROBE settings base_url=%r model=%r key_set=%s",
+            settings.omniroute_base_url,
+            settings.reasoning_model,
+            bool(settings.omniroute_api_key),
+        )
+        url = f"{settings.omniroute_base_url.rstrip('/')}/chat/completions"
+        log.info("PROBE effective url=%r", url)
         try:
             text = _complete_once(
                 user_prompt="Reply with the single word OK.",
