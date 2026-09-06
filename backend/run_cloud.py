@@ -60,11 +60,48 @@ async def run_telegram() -> None:
 
 async def probe_outbound() -> None:
     """Temporary connectivity probe for openrouter.ai (debug only)."""
+    import socket
+
     import httpx
 
+    def _sock(host: str, port: int = 443) -> None:
+        try:
+            infos = socket.getaddrinfo(host, port, 0, socket.SOCK_STREAM)
+            log.info("PROBE dns %s -> %s", host, [(i[0].name, i[4][0]) for i in infos])
+            for fam, _, _, _, addr in infos:
+                s = socket.socket(fam, socket.SOCK_STREAM)
+                s.settimeout(10)
+                try:
+                    s.connect(addr)
+                    log.info("PROBE connect %s %s OK", host, addr)
+                except Exception as exc:  # noqa: BLE001
+                    log.error("PROBE connect %s %s -> %r", host, addr, exc)
+                finally:
+                    s.close()
+        except Exception as exc:  # noqa: BLE001
+            log.error("PROBE getaddrinfo %s -> %r", host, exc)
+
+    def _llm() -> None:
+        from backend.reasoning.llm import _complete_once
+
+        try:
+            text = _complete_once(
+                user_prompt="Reply with the single word OK.",
+                system_prompt="You are a debugging assistant.",
+                model="openai/gpt-4o-mini",
+                max_tokens=16,
+                temperature=0.0,
+                timeout=120.0,
+            )
+            log.info("PROBE complete OK: %r", (text or "")[:80])
+        except Exception as exc:  # noqa: BLE001
+            log.error("PROBE complete -> %r", exc)
+
+    _sock("openrouter.ai")
+    _llm()
     try:
         with httpx.Client(timeout=20.0) as client:
-            for host in ("https://openrouter.ai/api/v1/models", "https://api.binance.com/api/v3/time"):
+            for host in ("https://openrouter.ai/api/v1", "https://api.binance.com/api/v3/time"):
                 try:
                     r = client.get(host)
                     log.info("PROBE %s -> HTTP %s", host, r.status_code)
