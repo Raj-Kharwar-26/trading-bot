@@ -55,6 +55,11 @@ def get_session() -> Session:
 def init_db() -> None:
     """Create all tables (idempotent). Safe to call at startup."""
     try:
+        # Import models first so their tables are registered on Base.metadata;
+        # otherwise create_all runs against an empty registry and silently skips.
+        from backend.storage import models as _models  # noqa: F401
+
+        _ = _models  # keep the import live
         Base.metadata.create_all(bind=get_engine())
     except Exception as exc:  # noqa: BLE001
         log.warning("init_db failed (non-fatal): %s", exc)
