@@ -40,6 +40,8 @@ RUN python -c "from openbb import obb" && \
 # Copy application code (project root -> /app).
 COPY backend/ ./backend/
 COPY vendor/ ./vendor/
+# Strategy documents for RAG seeding (docs/strategies) ship with the image.
+COPY docs/ ./docs/
 
 # Install the vendored TradingAgents package (--no-deps: build-context install
 # at the frozen dependency set; the package is pure-Python).

@@ -32,6 +32,9 @@ dist/
 
 # Data / artifacts (volume-mounted, not committed)
 data/
+# But backend/data is source code needed by Render (git HEAD build context).
+!backend/data/
+!backend/data/*.py
 *.db
 *.sqlite3
 paper_logs/
