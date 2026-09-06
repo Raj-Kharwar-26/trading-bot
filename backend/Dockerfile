@@ -31,9 +31,19 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r requirements.txt
 
+# openbb builds its static package at import time by writing into its own
+# install dir (.build.lock). Bake that build in now (running as root) and
+# hand the dir to appuser so the non-root runtime import succeeds.
+RUN python -c "from openbb import obb" && \
+    chown -R appuser:appuser /usr/local/lib/python3.12/site-packages/openbb
+
 # Copy application code (project root -> /app).
 COPY backend/ ./backend/
 COPY vendor/ ./vendor/
+
+# Install the vendored TradingAgents package (--no-deps: build-context install
+# at the frozen dependency set; the package is pure-Python).
+RUN pip install --no-cache-dir --no-deps ./vendor/tradingagents
 
 # Create data directories, writable by the app user.
 RUN mkdir -p /app/data /app/logs /app/audit_logs /app/reflections /app/paper_logs && \
@@ -50,7 +60,7 @@ EXPOSE 8000
 
 # Health check (API stage only makes sense; harmless for others).
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:8000/healthz || exit 1
+    CMD curl -f "http://localhost:${PORT:-10000}/healthz" || exit 1
 
 
 # --- API Stage ---
