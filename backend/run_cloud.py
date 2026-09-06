@@ -60,7 +60,10 @@ async def run_telegram() -> None:
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
-    seed_rag()
+    # Seed RAG in the background: fastembed's first run downloads the ONNX
+    # model and embedding a corpus can take minutes. Never let it block
+    # uvicorn's socket bind (Render scans for the port and times out slow boots).
+    asyncio.create_task(asyncio.to_thread(seed_rag))
 
     port = int(os.getenv("PORT", "10000"))
     config = uvicorn.Config(
