@@ -53,7 +53,7 @@ def _fake_openbb(monkeypatch):
     # Binance-crypto path returns a fixed frame (mirrors the expected contract).
     monkeypatch.setattr(
         "backend.data.market._fetch_binance_crypto",
-        lambda symbol, start, end: pd.DataFrame(
+        lambda symbol, start, end, **kw: pd.DataFrame(
             {
                 "open": [100.0, 101.0],
                 "high": [102.0, 103.0],

@@ -19,9 +19,26 @@ import logging
 from typing import Literal
 
 import pandas as pd
-from openbb import obb
 
 log = logging.getLogger(__name__)
+
+
+def __getattr__(name: str):
+    """PEP 562 lazy loader — ``from openbb import obb`` costs ~270 MB RSS.
+
+    Crypto uses the keyless Binance REST API by default and never touches
+    OpenBB, so we defer the import until the OpenBB fallback path is actually
+    reached (NSE daily / provider=yfinance).  Once loaded the result is cached
+    in ``globals()`` so ``__getattr__`` is only called once.  Tests that
+    ``monkeypatch.setattr("backend.data.market.obb", FakeObb())`` still work
+    because they set the attr directly in ``globals()``.
+    """
+    if name == "obb":
+        from openbb import obb as _obb  # noqa: PLC0415
+
+        globals()["obb"] = _obb
+        return _obb
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 MarketKind = Literal["NSE", "BSE", "CRYPTO"]
 
