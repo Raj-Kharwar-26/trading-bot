@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     rag_score_threshold: float = 0.25
     strategy_docs_dir: str = "./docs/strategies"
 
+    # --- RAG embedding placement (OOM fix on constrained hosts) ---
+    # When true, text is embedded server-side by the vector store (Qdrant Cloud
+    # Inference) and the in-process fastembed ONNX model is never loaded. When
+    # false (default), embedding happens locally with fastembed.
+    server_side_embeddings: bool = False
+    # Model id used by server-side inference (per Qdrant Cloud cluster; free on
+    # free-tier clusters). Must match the collection dimensionality.
+    qdrant_inference_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+
     # --- Deep reasoning (TradingAgents multi-agent, on-demand) ---
     # Controls the deep-analysis engine used when REASONING_ENGINE=deep or a
     # request sets deep=true. Kept separate from the lean path so the default

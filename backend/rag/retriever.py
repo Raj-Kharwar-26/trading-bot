@@ -23,11 +23,16 @@ def retrieve_context(query: str, top_k: int | None = None, score_threshold: floa
     client = get_client()
     ensure_collection(client)
 
-    vector = embed_texts([query])[0]
+    if settings.server_side_embeddings:
+        from qdrant_client.models import Document
+
+        query_vector = Document(text=query, model=settings.qdrant_inference_model)
+    else:
+        query_vector = embed_texts([query])[0]
 
     hits = client.query_points(
         collection_name=settings.qdrant_collection,
-        query=vector,
+        query=query_vector,
         limit=top_k,
         score_threshold=score_threshold,
     ).points

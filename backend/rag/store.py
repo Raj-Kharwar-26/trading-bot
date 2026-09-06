@@ -27,6 +27,9 @@ def get_client() -> QdrantClient:
             url=settings.qdrant_url,
             api_key=settings.qdrant_api_key or None,
             check_compatibility=False,
+            # cloud_inference=True tells the SDK to send raw text (Document)
+            # to the server instead of embedding locally with fastembed.
+            cloud_inference=settings.server_side_embeddings,
             timeout=120,
         )
     except Exception as exc:  # noqa: BLE001

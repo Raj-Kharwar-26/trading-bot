@@ -49,8 +49,9 @@ RUN pip install --no-cache-dir --no-deps ./vendor/tradingagents
 
 # Pre-download the RAG embedding model into the HF cache so boot-time seeding
 # never stalls on a first-run Hugging Face download (Render scans for the port).
+# No-op when SERVER_SIDE_EMBEDDINGS=true (server-side inference; no local model).
 ENV HF_HOME=/app/hf
-RUN python -c "from backend.rag.embeddings import get_embedder; get_embedder().embed(['warm-up']); print('embedding model cached under /app/hf')"
+RUN python -c "from backend.rag.embeddings import warm_up; warm_up()" || true
 
 # Create data directories, writable by the app user.
 RUN mkdir -p /app/data /app/logs /app/audit_logs /app/reflections /app/paper_logs && \

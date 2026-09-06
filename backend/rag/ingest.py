@@ -224,6 +224,21 @@ def _build_points(files: Iterable[Path]) -> list[object]:
         return []
 
     texts = [t for t, _ in all_texts]
+    if settings.server_side_embeddings:
+        from qdrant_client.models import Document
+
+        # Server-side inference: send the raw chunk text; the vector store
+        # embeds it (no local ONNX model, keeps the process light).
+        points = [
+            PointStruct(
+                id=str(uuid4()),
+                vector=Document(text=chunk, model=settings.qdrant_inference_model),
+                payload=payload,
+            )
+            for (chunk, payload) in all_texts
+        ]
+        return points
+
     vectors = embed_texts(texts)
 
     points = [
