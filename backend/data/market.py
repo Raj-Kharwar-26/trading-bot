@@ -41,8 +41,13 @@ def fetch_ohlcv(
     start_date: str,
     end_date: str,
     provider: str = "yfinance",
+    interval: str = "1d",
 ) -> pd.DataFrame:
-    """Fetch daily OHLCV for a symbol across a date range.
+    """Fetch OHLCV for a symbol across a date range.
+
+    ``interval`` is passed through for crypto (Binance klines) and NSE intraday
+    (yfinance direct).  Daily (``1d``) is the default for swing; intraday
+    callers pass ``1h`` or ``15m``.
 
     Returns a DataFrame indexed by date with lowercase columns
     ['open','high','low','close','volume'].
@@ -53,6 +58,10 @@ def fetch_ohlcv(
             "Use NSE or a paid provider (fmp/intrinio/tiingo) for BSE data."
         )
 
+    # --- NSE / BSE intraday via yfinance (best-effort) ---
+    if kind in ("NSE", "BSE") and interval != "1d":
+        return _fetch_nse_intrady(symbol, interval, end_date)
+
     # Crypto prefers the keyless Binance public API (covers all alt-coins that
     # yfinance/OpenBB don't reliably serve, e.g. UNI-USD). Falls back to the
     # configured OpenBB provider (yfinance) for compatibility / edge cases.
@@ -60,7 +69,7 @@ def fetch_ohlcv(
     use_binance = kind == "CRYPTO" and _crypto_prefers_binance(provider)
     if use_binance:
         try:
-            return _fetch_binance_crypto(symbol, start_date, end_date)
+            return _fetch_binance_crypto(symbol, start_date, end_date, interval=interval)
         except Exception as binance_exc:  # noqa: BLE001
             log.warning("binance crypto fetch failed for %s, falling back to OpenBB: %s", symbol, binance_exc)
             # fall through to the OpenBB path below
@@ -106,8 +115,12 @@ def _crypto_prefers_binance(provider: str) -> bool:
     return settings.crypto_price_provider.lower() != "yfinance"
 
 
-def _fetch_binance_crypto(symbol: str, start_date: str, end_date: str) -> pd.DataFrame:
+def _fetch_binance_crypto(
+    symbol: str, start_date: str, end_date: str, interval: str = "1d"
+) -> pd.DataFrame:
     """Fetch crypto OHLCV from the keyless Binance public API.
+
+    ``interval`` is forwarded to ``binance_klines`` (e.g. ``1d``, ``1h``).
 
     Returns a DataFrame already normalized to the canonical lowercase
     ``[open, high, low, close, volume]`` contract (DatetimeIndex).
@@ -117,14 +130,57 @@ def _fetch_binance_crypto(symbol: str, start_date: str, end_date: str) -> pd.Dat
     st = pd.Timestamp(start_date)
     en = pd.Timestamp(end_date)
 
-    # Naive 1d close -> normalized UTC daily frame. Rows are already normalized.
-    df = binance_klines(to_binance_symbol(symbol), interval="1d", limit=1000)
+    df = binance_klines(to_binance_symbol(symbol), interval=interval, limit=1000)
 
     # Slice to the requested window (covers TZ edge at midnight).
     df = df.loc[(df.index >= st.floor("D")) & (df.index <= en.ceil("D"))]
     if df.empty:
         raise MarketDataError(
             f"No data returned for CRYPTO {symbol} in range {start_date}..{end_date} "
-            f"(Binance)"
+            f"(Binance, interval={interval})"
         )
     return df
+
+
+def _fetch_nse_intrady(symbol: str, interval: str, end_date: str) -> pd.DataFrame:
+    """Best-effort NSE/BSE intraday via yfinance.
+
+    yfinance supports 15m/60m intervals for NSE tickers (.NS), but the
+    history is limited (~60 days).  Raises ``MarketDataError`` on failure
+    so callers can surface a clear caveat.
+    """
+    try:
+        import yfinance as yf  # noqa: WPS433
+    except ImportError as exc:
+        raise MarketDataError(
+            "yfinance is required for NSE intraday data"
+        ) from exc
+
+    from backend.core.config import settings
+
+    try:
+        df = yf.download(
+            symbol,
+            period=f"{settings.intraday_window_days_nse}d",
+            interval=interval,
+            progress=False,
+            auto_adjust=False,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise MarketDataError(f"NSE intraday fetch failed for {symbol}: {exc}") from exc
+
+    if df.empty:
+        raise MarketDataError(
+            f"No NSE intraday data returned for {symbol} (interval={interval}). "
+            "Use swing (daily) or try a different symbol."
+        )
+
+    rename = {c: c.lower() for c in df.columns}
+    df = df.rename(columns=rename)
+    ordered = ["open", "high", "low", "close", "volume"]
+    missing = [c for c in ordered if c not in df.columns]
+    if missing:
+        raise MarketDataError(
+            f"NSE intraday data for {symbol} missing columns: {missing}"
+        )
+    return df[[*ordered]]

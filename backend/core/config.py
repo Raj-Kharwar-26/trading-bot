@@ -135,6 +135,15 @@ class Settings(BaseSettings):
     backtest_max_hold_bars: int = 20  # bars before a max-hold close-out
     backtest_min_trades: int = 5      # min trades before stats count as "structured"
 
+    # --- Trade plan / style ---
+    analysis_default_style: str = "swing"   # "swing" | "intraday"
+    intraday_interval_crypto: str = "1h"
+    intraday_interval_nse: str = "15m"
+    intraday_window_days_crypto: int = 90
+    intraday_window_days_nse: int = 30
+    atr_period: int = 14
+    atr_multiplier: float = 2.0
+
     # --- Backtest costs (Phase 3 prep: fees + slippage) ---
     # All figures are fractions of traded notional unless stated (bps).
     backtest_costs_enabled: bool = True

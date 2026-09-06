@@ -31,7 +31,8 @@ log = logging.getLogger(__name__)
 HELP_TEXT = (
     "🤖 AI Trading Bot — Paper & Live Trading Commands\n\n"
     "📊 <b>Analysis &amp; Execution</b>\n"
-    "<code>/analyze &lt;symbol&gt; [market]</code> — run lean analysis (default NSE)\n"
+    "<code>/analyze &lt;symbol&gt; [market] [style]</code> — full trade plan (entry/stop/targets/backtest/sizing)\n"
+    "   styles: <code>swing</code> (default, daily) | <code>intraday</code> (1h crypto / 15m NSE)\n"
     "<code>/deep &lt;symbol&gt; [market]</code> — TradingAgents deep analysis\n"
     "<code>/paper_trade &lt;symbol&gt; &lt;LONG|SHORT&gt; &lt;qty&gt; &lt;entry_price&gt; [market]</code> — open paper position\n"
     "<code>/paper_close &lt;symbol&gt; &lt;LONG|SHORT&gt; &lt;exit_price&gt; [market]</code> — close paper position\n"
@@ -174,51 +175,122 @@ async def _cmd_ping(update: Update, _ctx: ContextTypes.DEFAULT_TYPE) -> None:
 async def _cmd_analyze(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
     args = ctx.args
     if not args:
-        await update.message.reply_text("Usage: /analyze <symbol> [market]")
+        await update.message.reply_text("Usage: /analyze <symbol> [market] [swing|intraday]")
         return
 
     symbol = args[0].upper()
-    market = _parse_market(args)
+    market = _parse_market(args)  # index 1: NSE/BSE/CRYPTO, default NSE
+    style = "swing"
+    if len(args) > 2 and args[2].lower() in ("swing", "intraday"):
+        style = args[2].lower()
+
     exec_symbol, display_symbol = _crypto_symbols(symbol, market)
-    await update.message.reply_text(f"🔍 Analyzing {display_symbol} ({market})...")
+    await update.message.reply_text(f"🔍 Building {display_symbol} ({market}) {style} plan...")
 
     try:
-        from backend.reasoning.agent_runner import analyse_symbol
-        report = analyse_symbol(exec_symbol, market, days=30, deep=False)
-        # Format key fields
-        signal = report.get("signal", "?")
-        conf = report.get("confidence", 0)
-        summary = report.get("summary", "")
-        entry = report.get("entry")
-        sl = report.get("stop_loss")
-        target = report.get("target")
-        rr = report.get("risk_reward")
+        from backend.reasoning.planner import build_trade_plan
 
-        lines = [
-            f"📊 <b>{display_symbol} ({market})</b>",
-            f"Signal: <b>{signal}</b>  Confidence: {conf:.0%}",
-            f"Summary: {summary}",
-        ]
-        if entry and sl and target:
-            lines.append(f"Entry: {entry} | SL: {sl} | Target: {target} | R/R: {rr}")
-        if report.get("backtest"):
-            bt = report["backtest"]
-            if bt.get("status") == "ok":
-                r = bt["result"]
-                lines.append(
-                    f"Backtest: {r['n_trades']} trades, Win {r['win_rate']:.0%}, "
-                    f"Avg R {r['avg_r_per_trade']:.2f}, PF {r['profit_factor'] or 'N/A'}"
-                )
-                if "costs" in bt:
-                    c = bt["costs"]
-                    lines.append(
-                        f"Costs: slippage {c['slippage_bps']}bps, "
-                        f"buy {c['buy_fee_pct']:.4%}, sell {c['sell_fee_pct']:.4%}"
-                    )
+        plan = build_trade_plan(exec_symbol, market, style=style)
+    except Exception as exc:
+        await update.message.reply_text(f"❌ Planning failed: {exc}")
+        return
 
-        await update.message.reply_text("\n".join(lines), parse_mode="HTML")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Analysis failed: {e}")
+    if "error" in plan:
+        await update.message.reply_text(f"❌ {plan['error']}")
+        return
+
+    lines = _format_plan(plan, exec_symbol, display_symbol, market, style)
+    await update.message.reply_text("\n".join(lines), parse_mode="HTML")
+
+
+def _format_plan(
+    plan: dict,
+    exec_symbol: str,
+    display_symbol: str,
+    market: str,
+    style: str,
+) -> list[str]:
+    """Render a trade plan into HTML reply lines."""
+    import html
+
+    esc = html.escape
+    header = f"📊 <b>{esc(display_symbol)} ({market} · {style.upper()})</b>"
+    conf = plan.get("confidence", 0)
+    direction = plan.get("direction", "NEUTRAL")
+
+    lines: list[str] = [header]
+
+    if direction == "NEUTRAL":
+        lines.append("Signal: <b>NEUTRAL</b> — no trade")
+        if plan.get("last_close") is not None:
+            lines.append(f"Last close: {plan['last_close']:g}")
+        if plan.get("summary"):
+            lines.append(f"Summary: {esc(plan['summary'])}")
+        for c in plan.get("caveats", []):
+            lines.append(f"⚠️ {esc(c)}")
+        return lines
+
+    # Directional plan
+    lines.append(f"Signal: <b>{direction}</b> ({conf:.0%} confidence)")
+    lines.append(
+        f"Entry: <b>{plan['entry']:g}</b> <i>({plan.get('entry_source', 'ai')})</i>"
+    )
+    lines.append(
+        f"Stop: <b>{plan['stop_loss']:g}</b> <i>({plan.get('stop_source', 'mechanical')})</i>"
+    )
+    targets = plan.get("targets", {})
+    t1, t2, t3 = targets.get("T1"), targets.get("T2"), targets.get("T3")
+    target_str = (
+        f"Targets: {t1:g} / <b>{t2:g}</b> / {t3:g}"
+        if all(v is not None for v in (t1, t2, t3))
+        else "Targets: n/a"
+    )
+    lines.append(target_str)
+    lines.append(f"R/R: {plan.get('risk_reward', 1.0):.1f}:1 · ATR: {plan.get('atr', 0):g}")
+
+    sizing = plan.get("sizing") or {}
+    if sizing.get("qty"):
+        lines.append(
+            f"Position: <b>{sizing['qty']:g}</b> ≈ {sizing.get('order_value', 0):,.0f} "
+            f"({sizing.get('pct_of_equity', 0):.2f}% of {sizing.get('equity', 0):,.0f}) "
+            f"· risk {sizing.get('risk_budget', 0):,.0f}"
+        )
+
+    bt = plan.get("backtest") or {}
+    if bt.get("status") == "ok":
+        r = bt["result"]
+        pf = r.get("profit_factor")
+        maxdd = r.get("max_drawdown_pct")
+        maxdd_s = f"{maxdd:.1%}" if maxdd is not None else "N/A"
+        lines.append(
+            f"Backtest: {r['n_trades']} trades · Win {r['win_rate']:.0%} · "
+            f"Avg R {r['avg_r_per_trade']:+.2f} · PF {pf if pf else 'N/A'} · MaxDD {maxdd_s}"
+        )
+    elif bt.get("status") == "skipped":
+        lines.append(f"Backtest: skipped ({esc(bt.get('message', ''))})")
+
+    grade = plan.get("grade", "N/A")
+    if grade == "PASS":
+        lines.append("Grade: ✅ <b>PASS</b>")
+    elif grade == "CAUTION":
+        lines.append("Grade: ⚠️ <b>CAUTION</b>")
+    elif grade == "AVOID":
+        lines.append("Grade: 🛑 <b>AVOID</b>")
+    else:
+        lines.append(f"Grade: {esc(str(grade))}")
+
+    if plan.get("summary"):
+        lines.append(f"Summary: {esc(plan['summary'])}")
+
+    for c in plan.get("caveats", []):
+        lines.append(f"⚠️ {esc(c)}")
+
+    if sizing.get("qty"):
+        side = "LONG" if direction == "LONG" else "SHORT"
+        lines.append(
+            f"<code>/paper_trade {exec_symbol} {side} {sizing['qty']:g} {plan['entry']:g} {market}</code>"
+        )
+    return lines
 
 
 async def _cmd_deep(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
