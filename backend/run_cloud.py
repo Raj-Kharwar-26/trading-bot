@@ -58,12 +58,30 @@ async def run_telegram() -> None:
         await app.stop()
 
 
+async def probe_outbound() -> None:
+    """Temporary connectivity probe for openrouter.ai (debug only)."""
+    import httpx
+
+    try:
+        with httpx.Client(timeout=20.0) as client:
+            for host in ("https://openrouter.ai/api/v1/models", "https://api.binance.com/api/v3/time"):
+                try:
+                    r = client.get(host)
+                    log.info("PROBE %s -> HTTP %s", host, r.status_code)
+                except Exception as exc:  # noqa: BLE001
+                    log.error("PROBE %s -> %r", host, exc)
+    except Exception as exc:  # noqa: BLE001
+        log.error("PROBE setup failed: %r", exc)
+
+
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
     # Seed RAG in the background: fastembed's first run downloads the ONNX
     # model and embedding a corpus can take minutes. Never let it block
     # uvicorn's socket bind (Render scans for the port and times out slow boots).
     asyncio.create_task(asyncio.to_thread(seed_rag))
+    if os.getenv("PROBE_OUTBOUND"):
+        asyncio.create_task(probe_outbound())
 
     port = int(os.getenv("PORT", "10000"))
     config = uvicorn.Config(
