@@ -9,6 +9,7 @@ Requires TELEGRAM_BOT_TOKEN and optional ALLOWED_TELEGRAM_USER_IDS in .env.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from telegram import Update
@@ -69,10 +70,30 @@ def _guard(handler):
         if not _is_authorized(uid):
             await update.message.reply_text("⛔ You are not authorized to use this bot.")
             return
+        cleaned = _clean_args(ctx.args)
+        if cleaned != ctx.args:
+            log.info("sanitized command args %r -> %r", ctx.args, cleaned)
+        ctx.args = cleaned
         await handler(update, ctx)
 
     wrapper.__name__ = getattr(handler, "__name__", "wrapped")
     return wrapper
+
+
+_ARG_SPLIT_RE = re.compile(r"[\s\u00a0\u200b\u200c\u200d\u2060\ufeff]+")
+
+
+def _clean_args(args: list[str] | None) -> list[str]:
+    """Split command args on any Unicode separator (incl. zero-width space).
+
+    Telegram messages copied from elsewhere can contain ZWSP/NBSP/BOM between
+    words; plain ``str.split`` only handles ASCII whitespace, which silently
+    glues args together (e.g. ``/paper_trade`` followed by a glued multi-arg
+    tail that used to collapse to a single token).
+    """
+    if not args:
+        return []
+    return [a for a in _ARG_SPLIT_RE.split(" ".join(args)) if a]
 
 
 def _parse_market(args: list[str], default_idx: int = 1) -> str:
