@@ -66,6 +66,14 @@ class Settings(BaseSettings):
     rag_score_threshold: float = 0.25
     strategy_docs_dir: str = "./docs/strategies"
 
+    # --- Keep-alive (Render free-tier sleep prevention) ---
+    # Render free web services sleep after ~15 min of inbound traffic
+    # inactivity.  Telegram polling is outbound and does not count, so the
+    # instance would go dark without a heartbeat.  When set, run_cloud pings
+    # this URL (default: $RENDER_EXTERNAL_URL) every interval to stay awake.
+    keepalive_url: str = ""
+    keepalive_interval_seconds: int = 240
+
     # --- RAG embedding placement (OOM fix on constrained hosts) ---
     # When true, text is embedded server-side by the vector store (Qdrant Cloud
     # Inference) and the in-process fastembed ONNX model is never loaded. When
