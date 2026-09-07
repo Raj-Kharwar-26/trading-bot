@@ -40,6 +40,22 @@ def __getattr__(name: str):
         return _obb
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
+
+def _get_obb():
+    """Resolve the OpenBB instance without a bare-name lookuup.
+
+    Module ``__getattr__`` (PEP 562) fires for attribute access on the module,
+    but a plain ``obb`` global inside a function is resolved against
+    ``globals()`` at bytecode level and never reaches the lazy loader (raises
+    NameError on a fresh interpreter).  Callers route through this helper so
+    the deferred import works everywhere; once loaded the instance is cached
+    back in ``globals()``.
+    """
+    obb = globals().get("obb")
+    if obb is None:
+        obb = __getattr__("obb")
+    return obb
+
 MarketKind = Literal["NSE", "BSE", "CRYPTO"]
 
 
@@ -92,6 +108,7 @@ def fetch_ohlcv(
             # fall through to the OpenBB path below
 
     try:
+        obb = _get_obb()
         if kind == "CRYPTO":
             result = obb.crypto.price.historical(
                 symbol, provider=provider, start_date=start_date, end_date=end_date

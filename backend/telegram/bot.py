@@ -143,11 +143,12 @@ async def _mirror_to_binance_testnet(
             api_secret=_s.binance_testnet_api_secret,
             base_url=_s.binance_testnet_base_url,
         )
+        binance_side = OrderSide.BUY if side.upper() == "LONG" else OrderSide.SELL
         client = BinanceTestnetClient(cfg)
         try:
             resp = await client.create_order(
                 symbol=symbol,
-                side=OrderSide(side.upper()),
+                side=binance_side,
                 order_type=OrderType.LIMIT,
                 quantity=qty,
                 price=limit_price,
@@ -157,9 +158,12 @@ async def _mirror_to_binance_testnet(
             return f"\n🧪 Binance Testnet: {status} (id {oid})"
         finally:
             await client.close()
-    except Exception:  # noqa: BLE001
-        log.warning("testnet mirror failed for %s %s", side, symbol)
-        return ""
+    except Exception as exc:  # noqa: BLE001
+        log.warning("testnet mirror failed for %s %s: %s", side, symbol, exc)
+        reason = str(exc).strip().replace("\n", " ")
+        if len(reason) > 160:
+            reason = reason[:160] + "..."
+        return f"\n⚠️ Binance Testnet mirror failed: {reason or type(exc).__name__}"
 
 
 # --- Commands ---
